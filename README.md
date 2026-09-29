@@ -389,9 +389,11 @@ The API and the worker are separate processes on purpose: the worker scales with
 ## Tests
 
 ```bash
-npm run typecheck    # tsc --noEmit
+npm run typecheck    # src + test, via tsconfig.test.json
 npm test
 ```
+
+There are two TypeScript configs. [`tsconfig.json`](tsconfig.json) is the **build** config and is scoped to `src` — its `rootDir` is what keeps `dist/` flat. [`tsconfig.test.json`](tsconfig.test.json) extends it with `rootDir: "."` and `noEmit`, and adds `test/`, so the tests are type-checked too and editors do not report them as outside the project.
 
 - [`test/dedupe.test.ts`](test/dedupe.test.ts) covers the selection logic: cheaper supplier wins, single-supplier hotels are kept, supplier ordering does not change the winner, tie-breaks, case-insensitive name matching, sort order, and determinism across repeated runs.
 - [`test/redisFilter.test.ts`](test/redisFilter.test.ts) covers the Redis-side price filter — both bounds, each bound alone, no bounds, an empty match, a never-cached city, and result-set replacement. **These run only when Redis is reachable** and skip automatically otherwise, so `npm test` passes without the stack up. To run them, start Redis (`docker compose up redis`) and re-run.
@@ -428,6 +430,8 @@ test/                    unit and integration tests
 postman/                 Postman collection
 Dockerfile               multi-stage build, one image for API and worker
 docker-compose.yml       full stack
+tsconfig.json            build config (src only, drives the dist/ layout)
+tsconfig.test.json       type-check config (src + test, no emit)
 ```
 
 ---

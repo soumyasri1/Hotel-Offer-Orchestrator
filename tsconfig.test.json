@@ -1,0 +1,12 @@
+// Type-checks the tests alongside the source. The build config deliberately
+// scopes itself to `src` (rootDir drives the dist/ layout), which leaves the
+// tests unchecked and makes editors report them as outside the project.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
