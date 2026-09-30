@@ -200,6 +200,10 @@ A city with no hotels, or a price range that matches nothing, returns `200` with
 }
 ```
 
+### `GET /`
+
+Lists the available endpoints.
+
 ### `GET /health`
 
 Reports each dependency separately, including **both suppliers**.

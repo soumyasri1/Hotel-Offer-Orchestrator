@@ -23,6 +23,21 @@ export function createApp(): Express {
     }),
   );
 
+  // Landing page so the bare URL is self-describing rather than a 404.
+  app.get('/', (_req: Request, res: Response) => {
+    res.json({
+      service: 'hotel-offer-orchestrator',
+      endpoints: {
+        'GET /api/hotels?city=delhi&minPrice=&maxPrice=': 'Deduplicated best offer per hotel, filtered by price in Redis',
+        'GET /health': 'Per-dependency health, including both suppliers',
+        'GET /supplierA/hotels?city=delhi': 'Mock Supplier A catalogue',
+        'GET /supplierB/hotels?city=delhi': 'Mock Supplier B catalogue',
+        'GET /suppliers/control': 'Simulated outage state',
+        'POST /suppliers/{A|B}/control': 'Toggle a supplier outage, body {"down":true} or {"delayMs":8000}',
+      },
+    });
+  });
+
   app.use(healthRoutes());
   app.use(hotelRoutes());
   app.use(supplierRoutes());
