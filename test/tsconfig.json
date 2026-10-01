@@ -1,0 +1,6 @@
+// Lets VS Code type-check the tests with Node types. tsconfig.json only covers
+// src/, so without this file the editor reports "Cannot find name 'node:test'".
+{
+  "extends": "../tsconfig.test.json",
+  "include": ["**/*.ts", "../src/**/*.ts"]
+}
