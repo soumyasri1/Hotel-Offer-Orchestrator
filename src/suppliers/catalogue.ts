@@ -11,10 +11,20 @@ import type { SupplierId } from './outage';
  * the API process and reset to the seed data on restart, which is what a mock
  * third party needs.
  */
-const catalogues: Record<SupplierId, SupplierHotel[]> = {
+const seed = (): Record<SupplierId, SupplierHotel[]> => ({
   A: SUPPLIER_A_HOTELS.map((hotel) => ({ ...hotel })),
   B: SUPPLIER_B_HOTELS.map((hotel) => ({ ...hotel })),
-};
+});
+
+const catalogues: Record<SupplierId, SupplierHotel[]> = seed();
+
+/** Discards every admin edit and restores the seed data. */
+export function resetCatalogues(): void {
+  const fresh = seed();
+  catalogues.A = fresh.A;
+  catalogues.B = fresh.B;
+  logger.info('supplier catalogues reset to seed data');
+}
 
 export interface NewHotel {
   name: string;

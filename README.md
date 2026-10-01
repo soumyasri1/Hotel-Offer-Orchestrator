@@ -259,6 +259,7 @@ All except login need `Authorization: Bearer <token>`.
 |---|---|
 | `POST /admin/login` | Body `{"password":"..."}`. Returns `{ token, expiresAt }`; `401` on a wrong password. |
 | `POST /admin/logout` | Invalidates the token. |
+| `POST /admin/reset` | Restores the seed catalogues and brings both suppliers back online. |
 | `GET /admin/session` | `{ "admin": true\|false }` for the presented token. |
 | `POST /suppliers/{A\|B}/hotels` | Add a hotel: `{"name","city","price","commissionPct"}`. `201`, `400` with field details, or `409` if that supplier already lists the name in that city. |
 | `DELETE /suppliers/{A\|B}/hotels/{hotelId}` | Remove a hotel. `404` if unknown. |

@@ -32,6 +32,14 @@ export function setOutage(supplier: SupplierId, patch: Partial<OutageState>): Ou
   return next;
 }
 
+/** Brings both suppliers back to their start-up state. */
+export function resetOutages(): Record<SupplierId, OutageState> {
+  state.A = { down: envFlag('SUPPLIER_A_DOWN'), delayMs: 0 };
+  state.B = { down: envFlag('SUPPLIER_B_DOWN'), delayMs: 0 };
+  logger.warn({ ...state }, 'supplier outage state reset');
+  return allOutages();
+}
+
 export function allOutages(): Record<SupplierId, OutageState> {
   return { A: { ...state.A }, B: { ...state.B } };
 }

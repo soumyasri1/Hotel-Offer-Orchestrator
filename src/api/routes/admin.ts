@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { logger } from '../../logger';
-import { bearerToken, isAdmin, login, logout } from '../auth';
+import { listHotels, resetCatalogues } from '../../suppliers/catalogue';
+import { resetOutages } from '../../suppliers/outage';
+import { bearerToken, isAdmin, login, logout, requireAdmin } from '../auth';
 
 /** Admin session endpoints used by the landing page. */
 export function adminRoutes(): Router {
@@ -27,6 +29,13 @@ export function adminRoutes(): Router {
   router.post('/admin/logout', (req: Request, res: Response) => {
     logout(bearerToken(req));
     res.status(204).end();
+  });
+
+  // Restores the demo: seed catalogues and both suppliers back online.
+  router.post('/admin/reset', requireAdmin, (_req: Request, res: Response) => {
+    resetCatalogues();
+    const outages = resetOutages();
+    res.json({ catalogue: { A: listHotels('A').length, B: listHotels('B').length }, outages });
   });
 
   // Lets the page check whether a stored token is still valid after a reload.
