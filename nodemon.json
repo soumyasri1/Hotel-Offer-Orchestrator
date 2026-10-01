@@ -1,0 +1,7 @@
+{
+  "watch": ["src", "public"],
+  "ext": "ts,json,html,css,js,jpg,png,webp",
+  "ignore": ["dist", "test", "node_modules"],
+  "delay": 300,
+  "exec": "tsx src/api/server.ts"
+}

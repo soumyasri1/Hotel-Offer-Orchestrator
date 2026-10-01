@@ -10,10 +10,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
+    "dev": "nodemon",
     "start:api": "node dist/api/server.js",
     "start:worker": "node dist/temporal/worker.js",
-    "dev:api": "tsx watch src/api/server.ts",
-    "dev:worker": "tsx watch src/temporal/worker.ts",
+    "dev:api": "nodemon",
+    "dev:worker": "nodemon --watch src --ext ts --exec \"tsx src/temporal/worker.ts\"",
     "test": "node --import tsx --test test/dedupe.test.ts test/redisFilter.test.ts"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.5",
+    "nodemon": "^3.1.14",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

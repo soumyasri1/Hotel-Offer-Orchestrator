@@ -1,0 +1,914 @@
+/* =============================================================================
+   Landing page styles  (served at /static/css/landing.css)
+   -----------------------------------------------------------------------------
+   The HTML lives in src/api/landingPage.ts; this file only styles it.
+
+   HOW THE PAGE IS BUILT (top to bottom, as you see it in the browser):
+
+     <header class="bar">            top bar: logo + Customer/Admin tabs  -> section 3
+     <main id="userView">            CUSTOMER page (default)
+        .bgshow / .bgcap               photo slideshow behind everything  -> section 5
+        <section class="hero">         big heading "Find the best hotel"  -> section 6
+        <form class="searchbox">       white search card                  -> section 6
+        .results-head + #results       hotel cards under the search       -> section 7
+     <main id="adminView">           ADMIN page (after logging in)        -> sections 8, 9
+     <details class="tech">          "Technical details" box at bottom    -> section 11
+     <dialog>                        admin login popup                    -> section 12
+     .toast                          short message at the bottom          -> section 13
+
+   Shared everywhere: colours (1), base rules (2), buttons/inputs (4),
+   small labels (10).
+
+   SECTIONS (Ctrl+F the number, e.g. "6. HERO", to jump there):
+     1. Colour tokens (light + dark theme)       - all pages
+     2. Base / reset                             - all pages
+     3. Top bar                                  - all pages
+     4. Buttons and form fields                  - all pages
+     5. Background photo slideshow               - customer page
+     6. Hero banner + search panel               - customer page  <- move/resize the search box here
+     7. Search results (hotel cards)             - customer page
+     8. Admin dashboard                          - admin page
+     9. Tables                                   - admin page + technical details
+    10. Small labels (pills, supplier tags)      - all pages
+    11. Technical details panel                  - bottom of both pages
+    12. Login dialog                             - popup from "Admin login"
+    13. Toast notification                       - popup at the bottom
+
+   Tips:
+   - Change a colour once in section 1 and it updates everywhere.
+   - Rule ORDER matters: later rules override earlier ones with the same
+     selector, so add overrides at the end of the relevant section.
+   - Edits show up after a browser refresh while `npm run dev` is running.
+   ============================================================================= */
+
+
+/* =============================================================================
+   1. COLOUR TOKENS
+   WHERE: nowhere by itself - these are the colours every other section uses.
+   Every colour on the page comes from these variables: use var(--name).
+   ============================================================================= */
+
+/* Light theme (the default). */
+:root {
+  --bg: #f6f5fb;              /* page background */
+  --surface: #ffffff;         /* cards, panels, search box */
+  --surface-2: #f1effa;       /* subtle inner background (chips, tabs, tech cards) */
+  --text: #1b1736;            /* main text */
+  --muted: #6a6585;           /* secondary / hint text */
+  --border: #e6e2f3;          /* hairline borders */
+
+  --primary: #1b38de;         /* main brand colour: Search button, links, active chip */
+  --primary-text: #ffffff;    /* text placed ON the primary colour */
+  --primary-weak: #ece8ff;    /* pale primary for selected states */
+  --pink: #e23d8f;            /* accent (Reset button) */
+
+  --ok: #12805c;   --ok-weak: #dcf5ea;     /* success / "up" / savings */
+  --warn: #a15c00; --warn-weak: #fdf0d8;   /* warnings / slow */
+  --bad: #cc2f45;  --bad-weak: #fde4e7;    /* errors / "down" / delete */
+
+  --a: #4f46e5;    --a-weak: #e8e7fd;      /* Supplier A colour */
+  --b: #c0267a;    --b-weak: #fce4f1;      /* Supplier B colour */
+
+  --new: #fff6d6;                          /* highlight for a just-added table row */
+
+  --shadow: 0 8px 24px rgba(40, 24, 110, 0.10);     /* normal card shadow */
+  --shadow-lg: 0 16px 40px rgba(40, 24, 110, 0.18); /* raised shadow (hover, search box) */
+
+  /* Gradient used by the logo, dialog header and behind the slideshow. */
+  --hero: linear-gradient(120deg, #4f46e5 0%, #8b3df0 40%, #e23d8f 75%, #f97316 100%);
+}
+
+/* Dark theme, applied automatically when the OS is in dark mode
+   (unless the page is forced to light with data-theme="light"). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12101c; --surface: #1c1929; --surface-2: #252136; --text: #eeecf8; --muted: #a49fbd;
+    --border: #332e48; --primary: #8f7bff; --primary-text: #120f22; --primary-weak: #2a2550;
+    --pink: #f472b6; --ok: #4fd1a1; --ok-weak: #15352b; --warn: #f5b454; --warn-weak: #3b2c12;
+    --bad: #f47a8a; --bad-weak: #3d1b22; --a: #a5a1ff; --a-weak: #26234d; --b: #f48ac0; --b-weak: #3b1c30;
+    --new: #3a3315; --shadow: 0 8px 24px rgba(0, 0, 0, 0.35); --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Dark theme, forced with <html data-theme="dark">. Keep in sync with the block above. */
+:root[data-theme="dark"] {
+  --bg: #12101c; --surface: #1c1929; --surface-2: #252136; --text: #eeecf8; --muted: #a49fbd;
+  --border: #332e48; --primary: #8f7bff; --primary-text: #120f22; --primary-weak: #2a2550;
+  --pink: #f472b6; --ok: #4fd1a1; --ok-weak: #15352b; --warn: #f5b454; --warn-weak: #3b2c12;
+  --bad: #f47a8a; --bad-weak: #3d1b22; --a: #a5a1ff; --a-weak: #26234d; --b: #f48ac0; --b-weak: #3b1c30;
+  --new: #3a3315; --shadow: 0 8px 24px rgba(0, 0, 0, 0.35); --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+
+/* =============================================================================
+   2. BASE / RESET
+   WHERE: the whole page (body font, page background, the .wrap column).
+   ============================================================================= */
+
+* { box-sizing: border-box; }
+
+/* The JS hides elements with the `hidden` attribute; make sure nothing overrides it. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; /* base font size */
+}
+
+code, .mono {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+}
+
+a { color: var(--primary); }
+
+/* .wrap = the centred content column. It is used on EVERY part of the page
+   (top bar, hero heading, search box, results, admin, technical details), so
+   changing it moves all of them together.
+   - max-width: 1160px -> the widest the content gets on a big screen. Bigger
+     number = content spreads wider; smaller = narrower, more empty space at the sides.
+   - margin: 0 auto    -> centres the column. Use `margin: 0` to stick it to the left.
+   - padding: 0 16px   -> gap between content and the screen edge on phones. */
+.wrap {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+
+/* =============================================================================
+   3. TOP BAR  (sticky header with logo and Customer / Admin tabs)
+   WHERE: the strip at the very top of every page. HTML: <header class="bar">.
+   ============================================================================= */
+
+.bar {
+  position: sticky;            /* stays at the top while scrolling */
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.bar .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* logo left, controls right */
+  gap: 12px;
+  min-height: 60px;               /* header height */
+  flex-wrap: wrap;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Logo + product name. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+/* Rounded gradient square holding the 🏨 emoji. */
+.logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--hero);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+/* Right-hand group: tabs, status pill, login button. */
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Segmented "Customer | Admin" switch. */
+.tabs {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.tabs button {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* The currently selected tab. */
+.tabs button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+
+/* =============================================================================
+   4. BUTTONS AND FORM FIELDS
+   WHERE: every button, input and dropdown on any page (search box,
+   admin add-hotel form, login popup).
+   ============================================================================= */
+
+/* Default button (white with a border). */
+button {
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+button:hover { background: var(--surface-2); }
+button:disabled { opacity: 0.6; cursor: progress; }
+
+/* Filled brand button, e.g. "Search", "Add hotel". */
+button.primary {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+  font-weight: 700;
+}
+button.primary:hover { filter: brightness(1.08); background: var(--primary); }
+
+/* Compact button used inside tables. */
+button.small { padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+
+/* Red text button for destructive actions (Remove). */
+button.danger { color: var(--bad); }
+button.danger:hover { background: var(--bad-weak); }
+
+/* Toggle button in its "on" state (e.g. an active outage option). */
+button.on-state {
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+  background: var(--primary-weak);
+}
+
+/* Text inputs and dropdowns. */
+input, select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+  min-width: 0; /* lets fields shrink inside grid/flex rows */
+}
+input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+/* Small uppercase caption above each field ("WHERE TO?", "MIN BUDGET"). */
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+
+/* =============================================================================
+   5. BACKGROUND PHOTO SLIDESHOW  (customer view only)
+   WHERE: customer page only - the full-screen Rajasthan photos behind
+   everything and the caption pill in the bottom-left corner.
+   HTML: <div class="bgshow"> and <div class="bgcap">.
+   Photos are served locally from /static so the page works offline. Each new
+   slide wipes in from top to bottom (clip-path) over the previous one, with a
+   slow zoom; the gradient behind them shows until the first photo loads.
+   ============================================================================= */
+
+/* Full-screen container behind everything. */
+.bgshow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--hero);
+}
+
+/* Dark overlay on top of the photos so white text stays readable.
+   Raise the alpha values (0.62 / 0.28 / 0.58) to darken the photos more. */
+.bgshow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(18, 10, 48, 0.62) 0%, rgba(18, 10, 48, 0.28) 40%, rgba(18, 10, 48, 0.58) 100%);
+}
+
+/* One photo. Starts fully clipped (invisible) and slightly zoomed in. */
+.slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  clip-path: inset(0 0 100% 0);
+  transform: scale(1.08);
+}
+
+/* The photo that was showing before; stays visible underneath. */
+.slide.prev { clip-path: inset(0 0 0 0); transform: scale(1); z-index: 0; }
+
+/* The photo being revealed. 1.6s = wipe speed, 9s = zoom speed. */
+.slide.on {
+  clip-path: inset(0 0 0 0);
+  transform: scale(1);
+  z-index: 1;
+  transition: clip-path 1.6s cubic-bezier(0.65, 0, 0.35, 1), transform 9s ease-out;
+}
+
+/* Users who ask for less motion get a simple fade instead. */
+@media (prefers-reduced-motion: reduce) {
+  .slide { clip-path: none; transform: none; opacity: 0; }
+  .slide.prev, .slide.on { opacity: 1; transform: none; }
+  .slide.on { transition: opacity 0.8s; }
+}
+
+/* Caption pill in the bottom-left corner (place name, credit, dots). */
+.bgcap {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: calc(100vw - 32px);
+  padding: 6px 8px 6px 14px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  background: rgba(15, 10, 35, 0.55);
+  backdrop-filter: blur(8px);
+}
+.bgcap .place { font-weight: 700; }
+.bgcap .credit { opacity: 0.7; font-size: 11px; }
+
+/* Slide picker dots; the active one stretches into a pill. */
+.bgdots { display: flex; gap: 6px; }
+.bgdot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.45);
+}
+.bgdot:hover { background: rgba(255, 255, 255, 0.8); }
+.bgdot.on { background: #fff; width: 22px; border-radius: 999px; }
+
+/* No slideshow on the admin dashboard. */
+body.mode-admin .bgshow,
+body.mode-admin .bgcap { display: none; }
+
+/* In the customer view the top bar is frosted glass so the photo shows through. */
+body:not(.mode-admin) .bar {
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+/* Results heading sits on the photo in the customer view, so make it white. */
+#userView .results-head h2 { color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); }
+#userView .results-head .sub { color: rgba(255, 255, 255, 0.92); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }
+
+
+/* =============================================================================
+   6. HERO BANNER + SEARCH PANEL
+   WHERE: customer page, top half - the big white heading on the photo
+   (<section class="hero">) and the white search card below it
+   (<form class="searchbox">).
+   The search panel is <form class="searchbox"> containing:
+     .searchrow  -> city / min / max / Search button
+     .chips      -> quick budget buttons + Reset
+   ============================================================================= */
+
+/* Big heading area at the top. The large bottom padding (120px) leaves room
+   for the search box, which is pulled up over it (see .searchbox margin-top). */
+.hero {
+  color: #fff;
+  padding: 72px 0 120px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4.4vw, 44px); /* scales with screen width, 28px to 44px */
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.hero p {
+  margin: 0;
+  font-size: 17px;
+  max-width: 620px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Small frosted label above the heading ("✈️ Your next getaway starts here"). */
+.hero .eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* The white search card.
+   - Width: fills the .wrap column. Add e.g. `max-width: 520px;` to make it narrower.
+   - Position: starts at the left edge of the column. Add `margin-left: auto;
+     margin-right: auto;` to centre it, or only `margin-left: auto;` to push it right.
+   - margin-top: -60px pulls it up so it overlaps the hero. Set to 0 to remove the overlap. */
+.searchbox {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 18px;
+  margin-top: -60px;
+  position: relative;
+}
+
+/* Field layout inside the search card: 4 columns side by side
+   (city is 1.5x wider, min, max, then the button sized to its text).
+   Use `grid-template-columns: 1fr;` to stack the fields vertically. */
+.searchrow {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end; /* lines the button up with the bottom of the inputs */
+}
+
+.searchrow button {
+  height: 44px; /* matches the input height */
+  padding: 0 26px;
+  font-size: 15px;
+}
+
+/* Phones: 2 columns; city and Search button take a full row each. */
+@media (max-width: 680px) {
+  .searchrow { grid-template-columns: 1fr 1fr; }
+  .searchrow .city-field,
+  .searchrow button { grid-column: 1 / -1; }
+}
+
+/* Row of quick budget buttons under the fields. */
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  align-items: center;
+}
+.chips .lbl { font-size: 13px; color: var(--muted); margin-right: 4px; }
+
+/* One budget chip; `.on` marks the selected one. */
+.chip {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.chip:hover { border-color: var(--primary); background: var(--surface-2); }
+.chip.on { background: var(--primary); color: var(--primary-text); }
+
+
+/* =============================================================================
+   7. SEARCH RESULTS
+   WHERE: customer page, below the search card - the "Hotels in Delhi"
+   heading and the grid of hotel cards. Also the loading shimmer and the
+   "no hotels" / error box. HTML: .results-head and <div id="results">.
+   ============================================================================= */
+
+/* "Hotels in Delhi" heading + count on the right. */
+.results-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 28px 0 14px;
+}
+.results-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.01em; text-transform: capitalize; }
+.results-head .sub { color: var(--muted); font-size: 14px; }
+
+/* Grid of hotel cards. Fits as many 240px+ cards per row as the width allows;
+   change 240px to make cards wider/narrower. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* One hotel card. Lifts slightly on hover. */
+.hotel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.hotel:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+/* Coloured top half of the card with the hotel's initial. */
+.hotel-img {
+  height: 128px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 46px;
+  font-weight: 800;
+}
+/* "Best price" style tag, top-left. */
+.hotel-img .tag {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(255, 255, 255, 0.95); color: #1b1736;
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+}
+/* "#1" rank badge, top-right. */
+.hotel-img .rank {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0, 0, 0, 0.28); color: #fff;
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+}
+
+/* Text half of the card. */
+.hotel-body { padding: 14px 16px 16px; display: grid; gap: 6px; flex: 1; }
+.hotel-body h3 { margin: 0; font-size: 18px; }
+.loc { margin: 0; color: var(--muted); font-size: 14px; text-transform: capitalize; }
+
+/* Price line, pushed to the bottom of the card. */
+.price-row { display: flex; align-items: baseline; gap: 6px; margin-top: auto; padding-top: 6px; }
+.price { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.per { color: var(--muted); font-size: 13px; }
+
+/* "You save ₹X vs the other supplier" line. */
+.save { margin: 0; font-size: 13px; font-weight: 600; color: var(--ok); }
+.save.neutral { color: var(--muted); font-weight: 500; }
+.via { font-size: 12px; color: var(--muted); }
+
+/* Empty / error message box shown instead of cards. */
+.state {
+  text-align: center;
+  padding: 44px 16px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+}
+.state .big { font-size: 40px; }
+.state h3 { margin: 8px 0 4px; }
+.state p { margin: 0; color: var(--muted); }
+.state.err { border-color: var(--bad); background: var(--bad-weak); }
+.state.err h3 { color: var(--bad); }
+
+/* Grey shimmering placeholder cards while a search is loading. */
+.skeleton {
+  height: 270px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+
+/* =============================================================================
+   8. ADMIN DASHBOARD
+   WHERE: admin page only (click Admin, log in). Title row, number tiles,
+   "Add a hotel" form, and the Supplier A / Supplier B panels.
+   HTML: <main id="adminView">.
+   ============================================================================= */
+
+/* Title row at the top of the dashboard. */
+.admin-head {
+  padding: 28px 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-head h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.admin-head p { margin: 4px 0 0; color: var(--muted); }
+
+/* Pink outlined "↺ Reset" button (search panel and admin). margin-left: auto
+   pushes it to the far right of its row. */
+.reset-btn {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pink);
+  border-color: var(--pink);
+  background: transparent;
+}
+.reset-btn:hover { background: var(--b-weak); }
+
+/* Row of number tiles (total hotels, cities, ...). */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+.stat .v { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; } /* the number */
+.stat .k { font-size: 13px; color: var(--muted); }                       /* its label */
+
+/* Generic white card used for admin sections. */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.panel h2 { margin: 0 0 12px; font-size: 17px; }
+
+/* "Add a hotel" form: supplier, name, city, price, commission, button. */
+.addform {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+@media (max-width: 860px) {
+  .addform { grid-template-columns: 1fr 1fr; }
+  .addform button { grid-column: 1 / -1; }
+}
+.addform button { height: 44px; }
+
+/* Success / error message under the add form. */
+.form-msg { margin: 10px 0 0; font-size: 14px; font-weight: 600; }
+.form-msg.ok { color: var(--ok); }
+.form-msg.bad { color: var(--bad); }
+
+/* Supplier A and Supplier B panels side by side (stacked under 900px). */
+.suppliers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 900px) {
+  .suppliers { grid-template-columns: 1fr; }
+}
+
+/* Supplier panel header (coloured square + name, then controls). */
+.sup-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.sup-title { display: flex; align-items: center; gap: 10px; }
+.sup-title h2 { margin: 0; }
+.sup-mark { width: 12px; height: 12px; border-radius: 4px; }
+
+/* "Simulate outage" control strip inside each supplier panel. */
+.outage {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.outage .lbl { color: var(--muted); margin-right: auto; }
+
+/* City filter above the supplier tables. */
+.filter-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.filter-row select { width: auto; padding: 6px 10px; }
+
+
+/* =============================================================================
+   9. TABLES  (supplier catalogues, price comparison)
+   WHERE: the hotel lists inside the Supplier A / B admin panels, and the
+   price comparison table in Technical details.
+   ============================================================================= */
+
+/* Lets wide tables scroll sideways on small screens instead of overflowing. */
+.table-wrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; } /* numbers line up */
+td.act { text-align: right; width: 1%; }                                  /* action-button column */
+td.cap { text-transform: capitalize; }
+
+/* Row just added by the admin: highlighted with a NEW badge. */
+tr.new td { background: var(--new); }
+.badge-new {
+  display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 800;
+  color: #1b1736; background: #ffd23f; padding: 1px 7px; border-radius: 999px;
+}
+
+/* Green commission percentage badge. */
+.comm {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; background: var(--ok-weak); color: var(--ok);
+}
+
+/* "No hotels" placeholder inside a panel. */
+.empty { color: var(--muted); padding: 16px; text-align: center; background: var(--surface-2); border-radius: 10px; margin: 0; }
+
+
+/* =============================================================================
+   10. SMALL LABELS
+   WHERE: little rounded tags used all over: health status in the top bar,
+   "Supplier A" / "Supplier B" tags on cards and tables.
+   ============================================================================= */
+
+/* Rounded status label. Add .ok / .warn / .bad / .admin for the colour. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pill.ok { background: var(--ok-weak); color: var(--ok); }
+.pill.warn { background: var(--warn-weak); color: var(--warn); }
+.pill.bad { background: var(--bad-weak); color: var(--bad); }
+.pill.admin { background: var(--b-weak); color: var(--b); }
+
+/* Small coloured status dot; takes the colour of its text. */
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; display: inline-block; }
+
+/* "Supplier A" / "Supplier B" tags in their own colours. */
+.sup { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.sup-a { background: var(--a-weak); color: var(--a); }
+.sup-b { background: var(--b-weak); color: var(--b); }
+
+
+/* =============================================================================
+   11. TECHNICAL DETAILS PANEL  (collapsible <details class="tech">)
+   WHERE: the collapsible "Technical details" box at the bottom of the page
+   (health, last request, price comparison, endpoint list).
+   ============================================================================= */
+
+details.tech {
+  margin: 36px 0 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Clickable header row. */
+details.tech > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-weight: 700;
+}
+details.tech > summary::-webkit-details-marker { display: none; } /* hide default arrow */
+details.tech > summary .chev { transition: transform 0.2s; color: var(--muted); }
+details.tech[open] > summary .chev { transform: rotate(90deg); }  /* arrow turns when open */
+details.tech > summary .hint { font-weight: 500; color: var(--muted); font-size: 14px; margin-right: auto; }
+
+/* Two-column grid of info cards (one column under 860px). */
+.tech-body { padding: 0 18px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) {
+  .tech-body { grid-template-columns: 1fr; }
+}
+.tech-card { background: var(--surface-2); border-radius: 12px; padding: 14px; min-width: 0; }
+.tech-card.wide { grid-column: 1 / -1; } /* spans both columns */
+.tech-card h3 { margin: 0 0 10px; font-size: 14px; }
+.tech-card td { background: transparent; }
+
+/* Cheaper price in the supplier comparison table. */
+td.win { background: var(--ok-weak) !important; color: var(--ok); font-weight: 700; }
+
+/* Dependency health tiles (Redis, Temporal, suppliers). */
+.deps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dep { background: var(--surface); border-radius: 10px; padding: 10px; display: grid; gap: 2px; }
+.dep .n { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.dep.up .dot { color: var(--ok); }
+.dep.down .dot { color: var(--bad); }
+.dep .d { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.dep.down .d { color: var(--bad); }
+
+/* "Last request" line and raw JSON box. */
+.req { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.req code { overflow-wrap: anywhere; }
+pre.raw { margin: 0; max-height: 220px; overflow: auto; background: var(--surface); border-radius: 10px; padding: 10px; font-size: 12px; }
+
+/* Numbered "what happens on each search" list. */
+ol.flow { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+
+/* Endpoint list: METHOD  /path  ...description. */
+ul.eps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+ul.eps li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
+ul.eps li:last-child { border-bottom: 0; }
+ul.eps .m { font-weight: 800; font-size: 11px; min-width: 52px; } /* HTTP method */
+ul.eps .m.get { color: var(--ok); }
+ul.eps .m.post { color: var(--primary); }
+ul.eps .m.del { color: var(--bad); }
+ul.eps .what { color: var(--muted); margin-left: auto; text-align: right; }
+
+/* "Try an error case" buttons. */
+.tries { display: flex; gap: 6px; flex-wrap: wrap; }
+
+
+/* =============================================================================
+   12. LOGIN DIALOG
+   WHERE: the popup that opens when you click "Admin login" in the top bar.
+   ============================================================================= */
+
+dialog {
+  border: 0;
+  border-radius: 18px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  width: min(400px, calc(100vw - 32px)); /* 400px wide, or the screen minus margins */
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+dialog::backdrop { background: rgba(20, 12, 50, 0.5); } /* dims the page behind */
+
+/* Gradient header strip. */
+.dlg-top { background: var(--hero); color: #fff; padding: 20px 22px; }
+.dlg-top h2 { margin: 0; font-size: 20px; }
+.dlg-top p { margin: 4px 0 0; opacity: 0.9; font-size: 14px; }
+
+dialog form { display: grid; gap: 12px; padding: 20px 22px 22px; }
+
+/* Right-aligned button row (Cancel / Log in). */
+.row-end { display: flex; justify-content: flex-end; gap: 8px; }
+
+
+/* =============================================================================
+   13. TOAST  (short message at the bottom centre, e.g. "Hotel removed")
+   WHERE: the small dark message that pops up at the bottom centre for a
+   few seconds (e.g. after adding or removing a hotel).
+   ============================================================================= */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%); /* centres it horizontally */
+  max-width: calc(100vw - 32px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;                  /* hidden until .show is added */
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 50;
+}
+.toast.show { opacity: 1; }
