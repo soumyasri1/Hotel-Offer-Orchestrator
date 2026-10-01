@@ -22,6 +22,8 @@ export const SUPPLIER_A_HOTELS: readonly SupplierHotel[] = [
   { hotelId: 'a6', name: 'Marriot', price: 9100, city: 'mumbai', commissionPct: 12 },
   { hotelId: 'a7', name: 'Radison', price: 5100, city: 'bengaluru', commissionPct: 11 },
   { hotelId: 'a8', name: 'Leelah', price: 6800, city: 'bengaluru', commissionPct: 14 },
+  { hotelId: 'a9', name: 'Hyatt', price: 6100, city: 'bengaluru', commissionPct: 13 },
+
 ];
 
 export const SUPPLIER_B_HOTELS: readonly SupplierHotel[] = [
@@ -33,6 +35,8 @@ export const SUPPLIER_B_HOTELS: readonly SupplierHotel[] = [
   { hotelId: 'b6', name: 'Marriot', price: 9400, city: 'mumbai', commissionPct: 16 },
   { hotelId: 'b7', name: 'Sealink Suites', price: 12300, city: 'mumbai', commissionPct: 21 },
   { hotelId: 'b8', name: 'Radison', price: 4950, city: 'bengaluru', commissionPct: 17 },
+  { hotelId: 'b9', name: 'Hyatt', price: 6300, city: 'bengaluru', commissionPct: 12 },
+
 ];
 
 /** Case-insensitive city match; an empty city returns the whole catalogue. */
