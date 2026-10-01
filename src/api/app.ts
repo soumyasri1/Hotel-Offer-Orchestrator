@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import pinoHttp from 'pino-http';
 import { logger } from '../logger';
@@ -11,6 +12,12 @@ export function createApp(): Express {
   const app = express();
 
   app.disable('x-powered-by');
+
+  // Landing-page assets (background photos). Mounted before request logging so
+  // image fetches do not flood the logs. `../../public` resolves to the repo's
+  // public/ from both src/api (tsx) and dist/api (compiled).
+  app.use('/static', express.static(path.resolve(__dirname, '../../public'), { maxAge: '7d' }));
+
   app.use(express.json({ limit: '100kb' }));
   app.use(
     pinoHttp({

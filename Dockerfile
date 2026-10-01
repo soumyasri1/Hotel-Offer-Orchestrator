@@ -31,6 +31,8 @@ RUN apt-get update \
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
+# Landing-page background photos, served at /static.
+COPY public ./public
 
 # Run unprivileged; the node image already ships a `node` user.
 USER node

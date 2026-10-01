@@ -77,16 +77,41 @@ export const LANDING_PAGE_HTML = `<!doctype html>
   input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
   label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 
-  /* ---- hero + search ---- */
-  /* Travel photo (Unsplash) under a tinted overlay for text contrast; the plain
-     gradient underneath shows if the photo cannot load (e.g. offline). */
-  .hero {
-    color: #fff; padding: 72px 0 120px;
-    background:
-      linear-gradient(100deg, rgba(30, 18, 90, 0.78) 0%, rgba(91, 61, 245, 0.35) 45%, rgba(226, 61, 143, 0.05) 100%),
-      url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=70") center 60% / cover no-repeat,
-      var(--hero);
+  /* ---- full-page photo slideshow (customer view only) ----
+     Photos are served locally from /static so the page works offline. Each new
+     slide wipes in from top to bottom (clip-path) over the previous one, with a
+     slow zoom; the gradient behind them shows until the first photo loads. */
+  .bgshow { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--hero); }
+  .bgshow::after {
+    content: ""; position: absolute; inset: 0; z-index: 2;
+    background: linear-gradient(180deg, rgba(18, 10, 48, 0.62) 0%, rgba(18, 10, 48, 0.28) 40%, rgba(18, 10, 48, 0.58) 100%);
   }
+  .slide { position: absolute; inset: 0; background-size: cover; background-position: center; clip-path: inset(0 0 100% 0); transform: scale(1.08); }
+  .slide.prev { clip-path: inset(0 0 0 0); transform: scale(1); z-index: 0; }
+  .slide.on { clip-path: inset(0 0 0 0); transform: scale(1); z-index: 1; transition: clip-path 1.6s cubic-bezier(0.65, 0, 0.35, 1), transform 9s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    .slide { clip-path: none; transform: none; opacity: 0; }
+    .slide.prev, .slide.on { opacity: 1; transform: none; }
+    .slide.on { transition: opacity 0.8s; }
+  }
+  .bgcap {
+    position: fixed; left: 16px; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    max-width: calc(100vw - 32px); padding: 6px 8px 6px 14px; border-radius: 999px; color: #fff; font-size: 13px;
+    background: rgba(15, 10, 35, 0.55); backdrop-filter: blur(8px);
+  }
+  .bgcap .place { font-weight: 700; }
+  .bgcap .credit { opacity: 0.7; font-size: 11px; }
+  .bgdots { display: flex; gap: 6px; }
+  .bgdot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.45); }
+  .bgdot:hover { background: rgba(255, 255, 255, 0.8); }
+  .bgdot.on { background: #fff; width: 22px; border-radius: 999px; }
+  body.mode-admin .bgshow, body.mode-admin .bgcap { display: none; }
+  body:not(.mode-admin) .bar { background: color-mix(in srgb, var(--surface) 84%, transparent); backdrop-filter: blur(10px); }
+  #userView .results-head h2 { color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); }
+  #userView .results-head .sub { color: rgba(255, 255, 255, 0.92); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }
+
+  /* ---- hero + search ---- */
+  .hero { color: #fff; padding: 72px 0 120px; }
   .hero h1 { margin: 0 0 8px; font-size: clamp(28px, 4.4vw, 44px); letter-spacing: -0.02em; line-height: 1.12; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35); }
   .hero p { margin: 0; font-size: 17px; max-width: 620px; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4); }
   .hero .eyebrow { display: inline-block; margin-bottom: 12px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(6px); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
@@ -244,6 +269,14 @@ export const LANDING_PAGE_HTML = `<!doctype html>
     </div>
   </div>
 </header>
+
+<!-- full-page background slideshow (customer view) -->
+<div class="bgshow" id="bgshow" aria-hidden="true"></div>
+<div class="bgcap" id="bgcap">
+  <span>📍 <span class="place" id="bgplace"></span></span>
+  <span class="credit" id="bgcredit"></span>
+  <span class="bgdots" id="bgdots"></span>
+</div>
 
 <!-- ================= customer view ================= -->
 <main id="userView">
@@ -471,8 +504,66 @@ export const LANDING_PAGE_HTML = `<!doctype html>
     $('adminView').hidden = view !== 'admin';
     $('tabUser').className = view === 'user' ? 'on' : '';
     $('tabAdmin').className = view === 'admin' ? 'on' : '';
+    document.body.classList.toggle('mode-admin', view === 'admin');
     if (view === 'admin') { renderAdmin(); loadOutages(); }
     window.scrollTo(0, 0);
+  }
+
+  // ---- background slideshow ----------------------------------------------------------
+  // Photos via Wikimedia Commons; credits are shown in the caption as their licences require.
+  var SLIDES = [
+    { file: 'jaipur-hawa-mahal.jpg', place: 'Hawa Mahal, Jaipur', credit: 'Photo: Marcin Białek, CC BY-SA 4.0', pos: 'center 35%' },
+    { file: 'udaipur-lake-pichola-sunset.jpg', place: 'Lake Pichola at sunset, Udaipur', credit: 'Photo: UnpetitproleX, CC BY-SA 4.0', pos: 'center 40%' },
+    { file: 'jaipur-amber-fort.jpg', place: 'Amber Fort, Jaipur', credit: 'Photo: A.Savin, Free Art License', pos: 'center 40%' },
+    { file: 'rajasthan-lakeside-sunset.jpg', place: 'Lakeside sunset, Rajasthan', credit: 'Photo: Mohd Danish Ansari, CC BY-SA 4.0', pos: 'center 50%' },
+    { file: 'udaipur-city-palace.jpg', place: 'City Palace, Udaipur', credit: 'Photo: Hirumon, CC BY 3.0', pos: 'center 40%' },
+  ];
+  var slideEls = [];
+  var dotEls = [];
+  var slideIdx = -1;
+  var slideTimer = null;
+
+  function showSlide(i) {
+    if (i === slideIdx) return;
+    slideEls.forEach(function (d) { d.classList.remove('prev'); });
+    if (slideIdx !== -1) {
+      slideEls[slideIdx].classList.remove('on');
+      slideEls[slideIdx].classList.add('prev');
+    }
+    var next = slideEls[i];
+    next.classList.remove('on');
+    void next.offsetWidth; // restart the wipe-in transition
+    next.classList.add('on');
+    slideIdx = i;
+    $('bgplace').textContent = SLIDES[i].place;
+    $('bgcredit').textContent = SLIDES[i].credit;
+    dotEls.forEach(function (d, j) { d.classList.toggle('on', j === i); });
+  }
+
+  function restartSlides() {
+    clearInterval(slideTimer);
+    slideTimer = setInterval(function () {
+      if (document.hidden || view !== 'user') return;
+      showSlide((slideIdx + 1) % SLIDES.length);
+    }, 6500);
+  }
+
+  function buildSlides() {
+    SLIDES.forEach(function (s, i) {
+      var d = el('div', 'slide');
+      d.style.backgroundImage = 'url("/static/backgrounds/' + s.file + '")';
+      d.style.backgroundPosition = s.pos;
+      $('bgshow').append(d);
+      slideEls.push(d);
+      var dot = el('button', 'bgdot');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', 'Show ' + s.place);
+      dot.addEventListener('click', function () { showSlide(i); restartSlides(); });
+      $('bgdots').append(dot);
+      dotEls.push(dot);
+    });
+    showSlide(0);
+    restartSlides();
   }
 
   function applyRole() {
@@ -1017,6 +1108,7 @@ export const LANDING_PAGE_HTML = `<!doctype html>
   // ---- start ------------------------------------------------------------------------
   async function init() {
     renderEndpoints();
+    buildSlides();
     if (token) {
       try {
         var s = await getJson('/admin/session', { headers: { authorization: 'Bearer ' + token } });

@@ -212,6 +212,8 @@ Open <http://localhost:3000> in a browser for an interactive dashboard. API clie
 | Per-dependency health, auto-refreshing | Take a supplier down, or make it slow |
 | Current outage state of each supplier | |
 
+The customer view sits on a full-page slideshow of Rajasthan photos (Hawa Mahal, Lake Pichola, Amber Fort, City Palace). They are served locally from `public/backgrounds/` so the page works offline. All are from Wikimedia Commons: Marcin Białek (CC BY-SA 4.0), UnpetitproleX (CC BY-SA 4.0), A.Savin (Free Art License), Mohd Danish Ansari (CC BY-SA 4.0) and Hirumon (CC BY 3.0); the credit for the photo on screen is shown in its caption.
+
 The admin password is `ADMIN_PASSWORD` (default `admin123` — change it anywhere other than a local demo). Admin rights are enforced by the server, not just hidden in the page: login returns a bearer token, and every write endpoint returns `401` without one.
 
 ### `GET /health`
