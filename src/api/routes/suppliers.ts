@@ -4,6 +4,7 @@ import { config } from '../../config';
 import { logger } from '../../logger';
 import { DuplicateHotelError, addHotel, listHotels, removeHotel } from '../../suppliers/catalogue';
 import { allOutages, getOutage, setOutage, type SupplierId } from '../../suppliers/outage';
+import { asyncHandler } from '../asyncHandler';
 import { requireAdmin } from '../auth';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -27,11 +28,11 @@ const newHotelSchema = z.object({
 export function supplierRoutes(): Router {
   const router = Router();
 
-  router.get('/supplierA/hotels', handler('A'));
-  router.get('/supplierB/hotels', handler('B'));
+  router.get('/supplierA/hotels', asyncHandler(handler('A')));
+  router.get('/supplierB/hotels', asyncHandler(handler('B')));
 
   // Admin: add a hotel to a supplier's catalogue.
-  router.post('/suppliers/:supplier/hotels', requireAdmin, (req: Request, res: Response) => {
+  router.post('/suppliers/:supplier/hotels', requireAdmin, asyncHandler(async (req: Request, res: Response) => {
     const supplier = normaliseSupplier(req.params.supplier);
     if (!supplier) {
       res.status(400).json({ error: 'BadRequest', message: 'supplier must be "A" or "B"' });
@@ -52,7 +53,7 @@ export function supplierRoutes(): Router {
     }
 
     try {
-      res.status(201).json({ supplier, hotel: addHotel(supplier, parsed.data) });
+      res.status(201).json({ supplier, hotel: await addHotel(supplier, parsed.data) });
     } catch (err) {
       if (err instanceof DuplicateHotelError) {
         res.status(409).json({ error: 'Conflict', message: err.message });
@@ -60,22 +61,22 @@ export function supplierRoutes(): Router {
       }
       throw err;
     }
-  });
+  }));
 
   // Admin: remove a hotel from a supplier's catalogue.
-  router.delete('/suppliers/:supplier/hotels/:hotelId', requireAdmin, (req: Request, res: Response) => {
+  router.delete('/suppliers/:supplier/hotels/:hotelId', requireAdmin, asyncHandler(async (req: Request, res: Response) => {
     const supplier = normaliseSupplier(req.params.supplier);
     if (!supplier) {
       res.status(400).json({ error: 'BadRequest', message: 'supplier must be "A" or "B"' });
       return;
     }
-    const removed = removeHotel(supplier, req.params.hotelId ?? '');
+    const removed = await removeHotel(supplier, req.params.hotelId ?? '');
     if (!removed) {
       res.status(404).json({ error: 'NotFound', message: `No hotel ${req.params.hotelId} at Supplier ${supplier}` });
       return;
     }
     res.json({ supplier, removed });
-  });
+  }));
 
   // Admin: runtime outage toggle, body { "down": true, "delayMs": 0 }
   router.post('/suppliers/:supplier/control', requireAdmin, (req: Request, res: Response) => {
@@ -107,9 +108,10 @@ export function supplierRoutes(): Router {
   });
 
   // Public: both catalogues as stored, regardless of any simulated outage.
-  router.get('/suppliers/catalogue', (_req: Request, res: Response) => {
-    res.json({ A: listHotels('A'), B: listHotels('B') });
-  });
+  router.get('/suppliers/catalogue', asyncHandler(async (_req: Request, res: Response) => {
+    const [A, B] = await Promise.all([listHotels('A'), listHotels('B')]);
+    res.json({ A, B });
+  }));
 
   // Public: current outage state, so anyone can see why results look partial.
   router.get('/suppliers/control', (_req: Request, res: Response) => {
@@ -135,7 +137,7 @@ function handler(supplier: SupplierId) {
       return;
     }
 
-    const hotels = listHotels(supplier, city);
+    const hotels = await listHotels(supplier, city);
     logger.debug({ supplier, city, count: hotels.length }, 'mock supplier responded');
     res.json(hotels);
   };

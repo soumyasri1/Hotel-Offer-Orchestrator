@@ -505,7 +505,8 @@ export const LANDING_PAGE_HTML = `<!doctype html>
     $('tabUser').className = view === 'user' ? 'on' : '';
     $('tabAdmin').className = view === 'admin' ? 'on' : '';
     document.body.classList.toggle('mode-admin', view === 'admin');
-    if (view === 'admin') { renderAdmin(); loadOutages(); }
+    // Re-read the catalogue so cities an admin just added appear under "Where to?".
+    loadCatalogue();
     window.scrollTo(0, 0);
   }
 
@@ -834,6 +835,8 @@ export const LANDING_PAGE_HTML = `<!doctype html>
 
     renderSupplierPanel('A', a, cityFilter);
     renderSupplierPanel('B', b, cityFilter);
+    loadOutages(); // the panels were just rebuilt, so refill their status rows
+
   }
 
   function renderSupplierPanel(id, hotels, cityFilter) {
@@ -1106,6 +1109,10 @@ export const LANDING_PAGE_HTML = `<!doctype html>
   });
 
   // ---- start ------------------------------------------------------------------------
+  // Another tab (e.g. the admin's) may have changed the catalogue meanwhile.
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) loadCatalogue(); });
+  window.addEventListener('focus', function () { loadCatalogue(); });
+
   async function init() {
     renderEndpoints();
     buildSlides();

@@ -267,7 +267,7 @@ All except login need `Authorization: Bearer <token>`.
 | `DELETE /suppliers/{A\|B}/hotels/{hotelId}` | Remove a hotel. `404` if unknown. |
 | `POST /suppliers/{A\|B}/control` | Toggle an outage — see [below](#simulating-a-supplier-outage). |
 
-Catalogue edits live in the API process's memory and reset to the seed data on restart — appropriate for a mock third party. Because every search runs the workflow, an added or removed hotel shows up on the very next search.
+The catalogues are stored in Redis (`catalogue:supplier:{A|B}` hashes), seeded from [src/suppliers/data.ts](src/suppliers/data.ts) on first use. Because Redis writes to disk, admin edits survive API restarts and image rebuilds; `POST /admin/reset` (the **Reset demo data** button) re-seeds them, which is also how a change to `data.ts` takes effect. Because every search runs the workflow, an added or removed hotel shows up on the very next search.
 
 ---
 
@@ -464,7 +464,7 @@ src/
     dedupe.ts            selectBestOffers - pure, deterministic
   suppliers/
     data.ts              seed catalogues with deliberate overlaps
-    catalogue.ts         in-memory catalogues admins can edit
+    catalogue.ts         Redis-backed catalogues admins can edit
     outage.ts            runtime outage toggle
   config.ts              env configuration
   logger.ts              pino setup
