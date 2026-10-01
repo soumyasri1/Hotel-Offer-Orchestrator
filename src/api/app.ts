@@ -1,6 +1,8 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import pinoHttp from 'pino-http';
 import { logger } from '../logger';
+import { LANDING_PAGE_HTML } from './landingPage';
+import { adminRoutes } from './routes/admin';
 import { healthRoutes } from './routes/health';
 import { hotelRoutes } from './routes/hotels';
 import { supplierRoutes } from './routes/suppliers';
@@ -23,21 +25,33 @@ export function createApp(): Express {
     }),
   );
 
-  // Landing page so the bare URL is self-describing rather than a 404.
+  // Browsers get the interactive landing page; API clients (curl, Postman send
+  // */*) get the JSON index, because res.format picks the first listed type.
   app.get('/', (_req: Request, res: Response) => {
-    res.json({
-      service: 'hotel-offer-orchestrator',
-      endpoints: {
-        'GET /api/hotels?city=delhi&minPrice=&maxPrice=': 'Deduplicated best offer per hotel, filtered by price in Redis',
-        'GET /health': 'Per-dependency health, including both suppliers',
-        'GET /supplierA/hotels?city=delhi': 'Mock Supplier A catalogue',
-        'GET /supplierB/hotels?city=delhi': 'Mock Supplier B catalogue',
-        'GET /suppliers/control': 'Simulated outage state',
-        'POST /suppliers/{A|B}/control': 'Toggle a supplier outage, body {"down":true} or {"delayMs":8000}',
+    res.format({
+      'application/json': () => {
+        res.json({
+          service: 'hotel-offer-orchestrator',
+          endpoints: {
+            'GET /api/hotels?city=delhi&minPrice=&maxPrice=': 'Deduplicated best offer per hotel, filtered by price in Redis',
+            'GET /health': 'Per-dependency health, including both suppliers',
+            'GET /supplierA/hotels?city=delhi': 'Mock Supplier A catalogue',
+            'GET /supplierB/hotels?city=delhi': 'Mock Supplier B catalogue',
+            'GET /suppliers/control': 'Simulated outage state',
+            'POST /admin/login': 'Exchange the admin password for a bearer token, body {"password":"..."}',
+            'POST /suppliers/{A|B}/hotels': 'Admin: add a hotel, body {"name","city","price","commissionPct"}',
+            'DELETE /suppliers/{A|B}/hotels/{hotelId}': 'Admin: remove a hotel',
+            'POST /suppliers/{A|B}/control': 'Admin: toggle a supplier outage, body {"down":true} or {"delayMs":8000}',
+          },
+        });
+      },
+      'text/html': () => {
+        res.type('html').send(LANDING_PAGE_HTML);
       },
     });
   });
 
+  app.use(adminRoutes());
   app.use(healthRoutes());
   app.use(hotelRoutes());
   app.use(supplierRoutes());

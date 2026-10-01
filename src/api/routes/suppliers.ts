@@ -1,25 +1,84 @@
 import { Router, type Request, type Response } from 'express';
+import { z } from 'zod';
 import { config } from '../../config';
 import { logger } from '../../logger';
-import { SUPPLIER_A_HOTELS, SUPPLIER_B_HOTELS, hotelsForCity } from '../../suppliers/data';
+import { DuplicateHotelError, addHotel, listHotels, removeHotel } from '../../suppliers/catalogue';
 import { allOutages, getOutage, setOutage, type SupplierId } from '../../suppliers/outage';
-import type { SupplierHotel } from '../../types';
+import { requireAdmin } from '../auth';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const newHotelSchema = z.object({
+  name: z.string().trim().min(1, 'name is required').max(80),
+  city: z.string().trim().min(1, 'city is required').max(40),
+  price: z.number({ invalid_type_error: 'must be a number' }).finite().positive('must be greater than zero'),
+  commissionPct: z
+    .number({ invalid_type_error: 'must be a number' })
+    .min(0, 'must be between 0 and 100')
+    .max(100, 'must be between 0 and 100'),
+});
+
 /**
- * Mounts `GET /supplier{A,B}/hotels` plus a control endpoint used to simulate
- * an outage. These stand in for third-party APIs — the Temporal activities call
- * them over HTTP rather than importing the data directly.
+ * Mounts `GET /supplier{A,B}/hotels` plus admin-only endpoints to edit the
+ * catalogues and simulate an outage. The supplier endpoints stand in for
+ * third-party APIs — the Temporal activities call them over HTTP rather than
+ * importing the data directly.
  */
 export function supplierRoutes(): Router {
   const router = Router();
 
-  router.get('/supplierA/hotels', handler('A', SUPPLIER_A_HOTELS));
-  router.get('/supplierB/hotels', handler('B', SUPPLIER_B_HOTELS));
+  router.get('/supplierA/hotels', handler('A'));
+  router.get('/supplierB/hotels', handler('B'));
 
-  // Runtime outage toggle: POST /suppliers/A/control { "down": true, "delayMs": 0 }
-  router.post('/suppliers/:supplier/control', (req: Request, res: Response) => {
+  // Admin: add a hotel to a supplier's catalogue.
+  router.post('/suppliers/:supplier/hotels', requireAdmin, (req: Request, res: Response) => {
+    const supplier = normaliseSupplier(req.params.supplier);
+    if (!supplier) {
+      res.status(400).json({ error: 'BadRequest', message: 'supplier must be "A" or "B"' });
+      return;
+    }
+
+    const parsed = newHotelSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'BadRequest',
+        message: 'Invalid hotel',
+        details: parsed.error.issues.map((issue) => ({
+          field: issue.path.join('.') || 'body',
+          message: issue.message,
+        })),
+      });
+      return;
+    }
+
+    try {
+      res.status(201).json({ supplier, hotel: addHotel(supplier, parsed.data) });
+    } catch (err) {
+      if (err instanceof DuplicateHotelError) {
+        res.status(409).json({ error: 'Conflict', message: err.message });
+        return;
+      }
+      throw err;
+    }
+  });
+
+  // Admin: remove a hotel from a supplier's catalogue.
+  router.delete('/suppliers/:supplier/hotels/:hotelId', requireAdmin, (req: Request, res: Response) => {
+    const supplier = normaliseSupplier(req.params.supplier);
+    if (!supplier) {
+      res.status(400).json({ error: 'BadRequest', message: 'supplier must be "A" or "B"' });
+      return;
+    }
+    const removed = removeHotel(supplier, req.params.hotelId ?? '');
+    if (!removed) {
+      res.status(404).json({ error: 'NotFound', message: `No hotel ${req.params.hotelId} at Supplier ${supplier}` });
+      return;
+    }
+    res.json({ supplier, removed });
+  });
+
+  // Admin: runtime outage toggle, body { "down": true, "delayMs": 0 }
+  router.post('/suppliers/:supplier/control', requireAdmin, (req: Request, res: Response) => {
     const supplier = normaliseSupplier(req.params.supplier);
     if (!supplier) {
       res.status(400).json({ error: 'BadRequest', message: 'supplier must be "A" or "B"' });
@@ -47,6 +106,12 @@ export function supplierRoutes(): Router {
     res.json({ supplier, state: setOutage(supplier, patch) });
   });
 
+  // Public: both catalogues as stored, regardless of any simulated outage.
+  router.get('/suppliers/catalogue', (_req: Request, res: Response) => {
+    res.json({ A: listHotels('A'), B: listHotels('B') });
+  });
+
+  // Public: current outage state, so anyone can see why results look partial.
   router.get('/suppliers/control', (_req: Request, res: Response) => {
     res.json(allOutages());
   });
@@ -54,7 +119,7 @@ export function supplierRoutes(): Router {
   return router;
 }
 
-function handler(supplier: SupplierId, catalogue: readonly SupplierHotel[]) {
+function handler(supplier: SupplierId) {
   return async (req: Request, res: Response): Promise<void> => {
     const outage = getOutage(supplier);
     const city = typeof req.query.city === 'string' ? req.query.city : undefined;
@@ -70,7 +135,7 @@ function handler(supplier: SupplierId, catalogue: readonly SupplierHotel[]) {
       return;
     }
 
-    const hotels = hotelsForCity(catalogue, city);
+    const hotels = listHotels(supplier, city);
     logger.debug({ supplier, city, count: hotels.length }, 'mock supplier responded');
     res.json(hotels);
   };

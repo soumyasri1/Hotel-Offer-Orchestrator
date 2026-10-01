@@ -44,6 +44,13 @@ export const config = {
     /** Artificial latency on the mock endpoints, to make the parallel fan-out visible. */
     latencyMs: int('SUPPLIER_LATENCY_MS', 150),
   },
+
+  admin: {
+    /** Password for the landing page's admin login. Override it outside local demos. */
+    password: str('ADMIN_PASSWORD', 'admin123'),
+    /** How long an admin session token stays valid. */
+    sessionTtlMs: int('ADMIN_SESSION_TTL_MS', 8 * 60 * 60 * 1000),
+  },
 } as const;
 
 export type Config = typeof config;

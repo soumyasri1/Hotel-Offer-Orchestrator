@@ -200,9 +200,19 @@ A city with no hotels, or a price range that matches nothing, returns `200` with
 }
 ```
 
-### `GET /`
+### `GET /` — landing page
 
-Lists the available endpoints.
+Open <http://localhost:3000> in a browser for an interactive dashboard. API clients such as curl and Postman get a JSON list of the endpoints instead.
+
+| Everyone (viewer) | Admin (after **Admin login**) |
+|---|---|
+| Search hotels, including one-click demos of every validation error | Everything a viewer can do |
+| See each supplier's raw offers next to the winner the API picked | Add a hotel to Supplier A or B |
+| Browse both supplier catalogues, filtered by city | Remove a hotel |
+| Per-dependency health, auto-refreshing | Take a supplier down, or make it slow |
+| Current outage state of each supplier | |
+
+The admin password is `ADMIN_PASSWORD` (default `admin123` — change it anywhere other than a local demo). Admin rights are enforced by the server, not just hidden in the page: login returns a bearer token, and every write endpoint returns `401` without one.
 
 ### `GET /health`
 
@@ -238,14 +248,29 @@ The suppliers are probed over HTTP through `SUPPLIER_BASE_URL`, the same path th
 |---|---|
 | `GET /supplierA/hotels?city=delhi` | Supplier A catalogue. Omit `city` for everything. |
 | `GET /supplierB/hotels?city=delhi` | Supplier B catalogue. |
+| `GET /suppliers/catalogue` | Both catalogues as stored, regardless of any simulated outage. |
 | `GET /suppliers/control` | Current simulated-outage state of both suppliers. |
+
+### Admin endpoints
+
+All except login need `Authorization: Bearer <token>`.
+
+| Endpoint | Description |
+|---|---|
+| `POST /admin/login` | Body `{"password":"..."}`. Returns `{ token, expiresAt }`; `401` on a wrong password. |
+| `POST /admin/logout` | Invalidates the token. |
+| `GET /admin/session` | `{ "admin": true\|false }` for the presented token. |
+| `POST /suppliers/{A\|B}/hotels` | Add a hotel: `{"name","city","price","commissionPct"}`. `201`, `400` with field details, or `409` if that supplier already lists the name in that city. |
+| `DELETE /suppliers/{A\|B}/hotels/{hotelId}` | Remove a hotel. `404` if unknown. |
 | `POST /suppliers/{A\|B}/control` | Toggle an outage — see [below](#simulating-a-supplier-outage). |
+
+Catalogue edits live in the API process's memory and reset to the seed data on restart — appropriate for a mock third party. Because every search runs the workflow, an added or removed hotel shows up on the very next search.
 
 ---
 
 ## Mock supplier data
 
-Both catalogues are static and deliberately overlap. For **delhi**:
+Both catalogues are seeded from static data and deliberately overlap (admins can edit them at runtime, see above). For **delhi**:
 
 | Hotel | Supplier A | Supplier B | Winner |
 |---|---|---|---|
@@ -263,7 +288,7 @@ The mock endpoints sleep for `SUPPLIER_LATENCY_MS` (default 150 ms) before respo
 
 ## Postman collection
 
-Import [`postman/hotel-offer-orchestrator.postman_collection.json`](postman/hotel-offer-orchestrator.postman_collection.json). It has 20 requests with assertions, in five folders:
+Import [`postman/hotel-offer-orchestrator.postman_collection.json`](postman/hotel-offer-orchestrator.postman_collection.json). It has 21 requests with assertions, in five folders:
 
 | Folder | Covers |
 |---|---|
@@ -271,9 +296,9 @@ Import [`postman/hotel-offer-orchestrator.postman_collection.json`](postman/hote
 | **Hotels** | Valid city with overlaps, price range, single bound, range matching nothing, city with no results, a second city. |
 | **Validation** | Missing `city`, non-numeric `minPrice`, `minPrice > maxPrice`. |
 | **Mock suppliers** | Both supplier endpoints directly. |
-| **Supplier outage simulation** | An 8-step scenario: take A down, confirm `degraded`, confirm results still served from B, take B down too, confirm `502`, confirm `unhealthy`, restore both. |
+| **Supplier outage simulation** | Logs in as admin, then an 8-step scenario: take A down, confirm `degraded`, confirm results still served from B, take B down too, confirm `502`, confirm `unhealthy`, restore both. |
 
-The collection variable `baseUrl` defaults to `http://localhost:3000`.
+The collection variable `baseUrl` defaults to `http://localhost:3000`, and `adminPassword` to `admin123`.
 
 Run the whole thing from the Collection Runner, or on the command line:
 
@@ -288,11 +313,15 @@ Run the folders in order. The outage folder restores both suppliers in its final
 
 ## Simulating a supplier outage
 
-Supplier health is togglable at runtime, so the failure path can be demonstrated without restarting anything:
+Supplier health is togglable at runtime, so the failure path can be demonstrated without restarting anything. The easiest way is the landing page: log in as admin and use the **Supplier outages** panel. From the command line:
 
 ```bash
+# Log in as admin and keep the token
+TOKEN=$(curl -s -X POST http://localhost:3000/admin/login \
+  -H 'content-type: application/json' -d '{"password":"admin123"}' | sed 's/.*"token":"\([^"]*\)".*/\1/')
+
 # Take Supplier A down
-curl -X POST http://localhost:3000/suppliers/A/control \
+curl -X POST http://localhost:3000/suppliers/A/control -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"down":true}'
 
 # Still 200 - every offer now comes from Supplier B
@@ -302,14 +331,14 @@ curl "http://localhost:3000/api/hotels?city=delhi"
 curl http://localhost:3000/health
 
 # Restore
-curl -X POST http://localhost:3000/suppliers/A/control \
+curl -X POST http://localhost:3000/suppliers/A/control -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"down":false}'
 ```
 
 A supplier can also be made slow instead of dead, to exercise the activity timeout:
 
 ```bash
-curl -X POST http://localhost:3000/suppliers/B/control \
+curl -X POST http://localhost:3000/suppliers/B/control -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' -d '{"delayMs":8000}'
 ```
 
@@ -357,6 +386,8 @@ All settings are environment variables with working defaults; see [`.env.example
 | `SUPPLIER_TIMEOUT_MS` | `5000` | Per-request supplier timeout. |
 | `SUPPLIER_LATENCY_MS` | `150` | Artificial latency on the mock endpoints. |
 | `SUPPLIER_A_DOWN` / `SUPPLIER_B_DOWN` | `false` | Start a supplier in a failed state. |
+| `ADMIN_PASSWORD` | `admin123` | Landing-page admin password. |
+| `ADMIN_SESSION_TTL_MS` | `28800000` | Admin token lifetime (8 h). |
 
 ---
 
@@ -411,10 +442,13 @@ src/
   api/
     server.ts            process bootstrap, graceful shutdown
     app.ts               express wiring, 404 and error handlers
+    landingPage.ts       browser dashboard served at GET /
+    auth.ts              admin password login + bearer-token guard
     routes/
       hotels.ts          GET /api/hotels - validation, starts the workflow
       health.ts          GET /health - per-dependency probes
-      suppliers.ts       mock supplier APIs + outage control
+      suppliers.ts       mock supplier APIs, catalogue edits, outage control
+      admin.ts           POST /admin/login, logout, session
   temporal/
     workflows.ts         hotelSearchWorkflow - the orchestration
     activities.ts        supplier HTTP calls, Redis read/write
@@ -426,7 +460,8 @@ src/
   domain/
     dedupe.ts            selectBestOffers - pure, deterministic
   suppliers/
-    data.ts              static catalogues with deliberate overlaps
+    data.ts              seed catalogues with deliberate overlaps
+    catalogue.ts         in-memory catalogues admins can edit
     outage.ts            runtime outage toggle
   config.ts              env configuration
   logger.ts              pino setup
